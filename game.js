@@ -43,7 +43,7 @@ $(function() {
   for (var i = 40; i < world.points.length - 2; i++) {
     new Line(world, world.points[i], world.points[i + 2], true);
   }
-
+  
   (function update() {
     requestAnimFrame(update);
     for (var i = 0; i < 10; i++) {

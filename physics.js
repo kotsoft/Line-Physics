@@ -1,3 +1,18 @@
+var mouse, dragPoint, mx, my;
+window.addEventListener('mousedown', function(e) {
+  mouse = true;
+  mx = e.x;
+  my = e.y;
+});
+window.addEventListener('mouseup', function() {
+  mouse = false;
+  dragPoint = null;
+})
+window.addEventListener('mousemove', function(e) {
+  mx = e.x;
+  my = e.y;
+})
+
 function World(width, height, pointSize, gravX, gravY) {
   this.lines = [];
   this.points = [];
@@ -17,6 +32,21 @@ World.prototype = {
     }
     for (var i in this.points) {
       this.points[i].update();
+    }
+    if (dragPoint != null) {
+      dragPoint.x = dragPoint.xprev = mx;
+      dragPoint.y = dragPoint.yprev = my;
+    } else if (mouse) {
+      var minDist = 1000;
+      for (var i in this.points) {
+        var point = this.points[i];
+        var diffX = point.x - mx;
+        var diffY = point.y - my;
+        var dsq = diffX * diffX + diffY * diffY
+        if (dsq < minDist) {
+          dragPoint = point;
+        }
+      }
     }
   },
   draw: function(ctx) {
