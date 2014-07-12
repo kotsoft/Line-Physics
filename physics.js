@@ -69,10 +69,42 @@ Point.prototype = {
     for (var i in this.world.points) {
       var point = this.world.points[i];
       var diffX = point.x - this.x;
-      if (diffX > -)
+      if (diffX > -this.world.pointSize && diffX < this.world.pointSize) {
+        var diffY = point.y - this.y;
+        if (diffY > -this.world.pointSize && diffY < this.world.pointSize) {
+          var length = Math.sqrt(diffX * diffX + diffY * diffY);
+          if (dist < this.world.pointSize) {
+            var disp = (this.restLength - length) / length;
+            var dx = diffX * disp;
+            var dy = diffY * disp;
+
+            var totalMass = this.mass + point.mass;
+            var mulA = .5 * (point.mass / totalMass);
+            var mulB = .5 - mulA;
+            this.dispX -= mulA * dx;
+            this.dispY -= mulA * dy;
+            point.dispX += mulB * dx;
+            point.dispY += mulB * dy;
+
+            this.numConstraints++;
+            point.numConstraints++;
+          }
+        }
+      }
     }
   },
   update: function() {
+    if (!this.fixed) {
+      this.x += this.dispX / this.numConstraints;
+      this.y += this.dispY / this.numConstraints;
+      this.u = this.x - this.xprev + this.world.gravX;
+      this.v = this.y - this.yprev + this.world.gravY;
+      this.xprev = this.x;
+      this.yprev = this.y;
+      this.x += this.u;
+      this.y += this.v;
+    }
 
+    this.numConstraints = 0;
   }
 }
