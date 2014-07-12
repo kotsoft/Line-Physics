@@ -6,7 +6,12 @@ function World(pointSize) {
 World.prototype = {
   update: function() {
     for (var i in lines) {
+      lines[i].updateVectors();
       lines[i].preserveLength();
+      lines[i].checkCollisions();
+    }
+    for (var i in points) {
+      points[i].checkCollisions();
     }
     for (var i in points) {
       points[i].update();
@@ -16,43 +21,85 @@ World.prototype = {
 
 function Line(world, pointA, pointB, solid) {
   this.world = world;
+  this.world.lines.push(this);
   this.pointA = pointA;
   this.pointB = pointB;
   this.solid = solid;
 
-  var diffX = this.pointB.x - this.pointA.x;
-  var diffY = this.pointB.y - this.pointA.y;
-  this.restLength = Math.sqrt(diffX * diffX + diffY * diffY);
+  this.updateVectors();
+  this.restLength = this.length;
   this.pointA.mass += this.restLength * (solid ? 1.0 : .25);
   this.pointB.mass += this.restLength * (solid ? 1.0 : .25);
 }
 Line.prototype = {
-  preserveLength: function() {
+  updateVectors: function() {
     var diffX = this.pointB.x - this.pointA.x;
     var diffY = this.pointB.y - this.pointA.y;
-    var length = Math.sqrt(diffX * diffX + diffY * diffY);
-    var disp = (this.restLength - length) / length;
-    var dx = diffX * disp;
-    var dy = diffY * disp;
+    this.length = Math.sqrt(diffX * diffX + diffY * diffY);
+    this.dx = diffX / this.length;
+    this.dy = diffY / this.length;
+    this.massDiff = this.pointB.mass - this.pointA.mass;
+    this.totalMass = this.pointA.mass + this.pointB.mass;
+    this.mulA = .5 * (this.pointB.mass / totalMass);
+    this.mulB = .5 - mulA;
+  },
+  preserveLength: function() {
+    var disp = this.restLength - this.length;
+    var dispX = this.dx * disp;
+    var dispY = this.dy * disp;
 
-    var totalMass = this.pointA.mass + this.pointB.mass;
-    var mulA = .5 * (this.pointB.mass / totalMass);
-    var mulB = .5 - mulA;
-    this.pointA.dispX -= mulA * dx;
-    this.pointA.dispY -= mulA * dy;
-    this.pointB.dispX += mulB * dx;
-    this.pointB.dispY += mulB * dy;
+    this.pointA.dispX -= this.mulA * dispX;
+    this.pointA.dispY -= this.mulA * dispY;
+    this.pointB.dispX += this.mulB * dispX;
+    this.pointB.dispY += this.mulB * dispY;
 
     this.pointA.numConstraints++;
     this.pointB.numConstraints++;
   },
   checkCollisions: function() {
+    for (var i in this.world.points) {
+      var point = this.world.points[i];
+      if (point != this.pointA && point != this.pointB) {
+        var diffX = point.x - this.pointA.x;
+        var diffY = point.y - this.pointA.y;
+        var dp = diffX * this.dx + diffY * this.dy;
+        if (dp > 0 && dp < this.length) {
+          var cp = diffX * this.dy - diffY * this.dx;
+          if (cp > -this.world.pointSize && cp < this.world.pointSize) {
+            var f = dp / this.length;
+            var interpolatedMass = this.pointA.mass + f * this.massDiff;
+            var totalMass = interpolatedMass + point.mass;
+            var mulPoint = .5 * (interpolatedMass / totalMass);
+            var mulAB = .5 - mulPoint;
 
+            var disp = cp > 0 ? this.world.pointSize - cp : -this.world.pointSize - cp;
+            var dispX = disp * this.dy;
+            var dispY = disp * -this.dx;
+            point.dispX += mulPoint * dispX;
+            point.dispY += mulPoint * dispY;
+
+            var mulSq = this.mulAB / (this.mulA * this.mulA + this.mulB * this.mulB);
+            var mulA2 = this.mulA * mulSq;
+            var mulB2 = this.mulB * mulSq;
+            this.pointA.dispX -= mulA2 * dispX;
+            this.pointA.dispY -= mulA2 * dispY;
+            this.pointB.dispX += mulB2 * dispX;
+            this.pointB.dispY += mulB2 * dispY;
+
+            this.pointA.numConstraints++;
+            this.pointB.numConstraints++;
+            point.numConstraints++;
+          }
+        }
+      }
+    }
   }
 }
 
 function Point(world, x, y, fixed) {
   this.world = world;
+  this.id = this.world.points.length;
+  this.world.points.push(this);
   this.x = this.xprev = x;
   this.y = this.yprev = y;
   this.u = 0;
@@ -66,7 +113,7 @@ function Point(world, x, y, fixed) {
 }
 Point.prototype = {
   checkCollisions: function() {
-    for (var i in this.world.points) {
+    for (var i = this.id + 1; i < this.world.points.length; i++) {
       var point = this.world.points[i];
       var diffX = point.x - this.x;
       if (diffX > -this.world.pointSize && diffX < this.world.pointSize) {
