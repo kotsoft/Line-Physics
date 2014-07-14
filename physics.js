@@ -124,7 +124,7 @@ Line.prototype = {
             var cp = diffX * this.dy - diffY * this.dx;
             if (cp > -this.world.pointSize && cp < this.world.pointSize) {
               var f = dp / this.length;
-              var interpolatedMass = this.pointA.mass + f * this.massDiff;
+              var interpolatedMass = 2 * (this.pointA.mass + f * this.massDiff);
               var totalMass = interpolatedMass + point.mass;
               var mulPoint = interpolatedMass / totalMass;
               var mulAB = 1 - mulPoint;
@@ -201,7 +201,6 @@ Point.prototype = {
   },
   update: function() {
     if (!this.fixed) {
-      this.numConstraints = 2;
       this.x += this.dispX / this.numConstraints;
       this.y += this.dispY / this.numConstraints;
       if (this.x < 0) {
